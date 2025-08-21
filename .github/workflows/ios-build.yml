@@ -13,8 +13,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
+    - name: Install Dependencies
+      run: |
+        # Install any required dependencies
+        echo "Installing dependencies..."
+    
     - name: Select Xcode
-      run: sudo xcode-select -switch /Applications/Xcode_15.0.app
+      run: sudo xcode-select -switch /Applications/Xcode_14.3.1.app
       
     - name: Build and Archive
       run: |
