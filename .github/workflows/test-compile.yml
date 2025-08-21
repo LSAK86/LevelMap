@@ -1,0 +1,84 @@
+name: Test Compile
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-13
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '15.0'
+    
+    - name: Show Project Structure
+      run: |
+        echo "=== Project Structure ==="
+        ls -la
+        echo "=== LevelMap Directory ==="
+        ls -la LevelMap/
+        echo "=== DesignSystem Directory ==="
+        ls -la LevelMap/DesignSystem/
+    
+    - name: Check for Missing Files
+      run: |
+        echo "=== Checking for Required Files ==="
+        
+        # Check main app file
+        if [ -f "LevelMap/LevelMapApp.swift" ]; then
+          echo "✅ LevelMapApp.swift exists"
+        else
+          echo "❌ LevelMapApp.swift missing"
+        fi
+        
+        # Check ContentView
+        if [ -f "LevelMap/ContentView.swift" ]; then
+          echo "✅ ContentView.swift exists"
+        else
+          echo "❌ ContentView.swift missing"
+        fi
+        
+        # Check DesignSystem files
+        if [ -f "LevelMap/DesignSystem/ModernDesignSystem.swift" ]; then
+          echo "✅ ModernDesignSystem.swift exists"
+        else
+          echo "❌ ModernDesignSystem.swift missing"
+        fi
+        
+        if [ -f "LevelMap/DesignSystem/LoadingView.swift" ]; then
+          echo "✅ LoadingView.swift exists"
+        else
+          echo "❌ LoadingView.swift missing"
+        fi
+        
+        # Check Core files
+        if [ -f "LevelMap/Core/Models.swift" ]; then
+          echo "✅ Models.swift exists"
+        else
+          echo "❌ Models.swift missing"
+        fi
+    
+    - name: Try Compile with Verbose Output
+      run: |
+        echo "=== Attempting Compilation ==="
+        xcodebuild -project LevelMap.xcodeproj \
+          -scheme LevelMap \
+          -configuration Debug \
+          -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+          -verbose \
+          build 2>&1 | head -50 || echo "Compilation failed - check logs above"
+    
+    - name: Show Last 20 Lines of Build Output
+      run: |
+        echo "=== Last 20 Lines of Build Output ==="
+        xcodebuild -project LevelMap.xcodeproj \
+          -scheme LevelMap \
+          -configuration Debug \
+          -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+          build 2>&1 | tail -20 || echo "Build failed"
