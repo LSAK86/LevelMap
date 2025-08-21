@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LevelMap - AR Floor Verification Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        .demo-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(45deg, #1a1a1a, #2a2a2a);
+        }
+        
+        .ar-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="%23333" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            background-size: 20px 20px;
+        }
+        
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .ar-content {
+            position: relative;
+            width: 80%;
+            height: 60%;
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        
+        .grid-point {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #00ff00;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: #000;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .grid-point:hover {
+            transform: scale(1.2);
+            background: #ffff00;
+        }
+        
+        .grid-point.selected {
+            background: #ff0000;
+            color: #fff;
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.8);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: all;
+        }
+        
+        .bottom-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            pointer-events: all;
+        }
+        
+        .button {
+            padding: 12px 24px;
+            background: #007AFF;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .button:hover {
+            background: #0056CC;
+            transform: translateY(-2px);
+        }
+        
+        .button.secondary {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .status {
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 16px;
+            min-width: 200px;
+            pointer-events: all;
+        }
+        
+        .info-item {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .info-label {
+            color: #999;
+        }
+        
+        .info-value {
+            color: #fff;
+            font-weight: 500;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        .modal h2 {
+            margin-bottom: 16px;
+            color: #fff;
+        }
+        
+        .modal p {
+            margin-bottom: 24px;
+            color: #ccc;
+            line-height: 1.5;
+        }
+        
+        .close-button {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="ar-view">
+            <div class="camera-overlay">
+                <div class="ar-content" id="arContent">
+                    <!-- Grid points will be generated here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="ui-overlay">
+            <div class="top-bar">
+                <div class="status" id="status">Detecting planes...</div>
+                <button class="button secondary" onclick="showInfo()">Info</button>
+            </div>
+            
+            <div class="info-panel" id="infoPanel" style="display: none;">
+                <div class="info-item">
+                    <div class="info-label">Rectangle Size:</div>
+                    <div class="info-value" id="rectSize">Not set</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Grid Points:</div>
+                    <div class="info-value" id="gridPoints">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Points Captured:</div>
+                    <div class="info-value" id="capturedPoints">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Tolerance:</div>
+                    <div class="info-value">±0.25"</div>
+                </div>
+            </div>
+            
+            <div class="bottom-controls">
+                <button class="button secondary" onclick="resetRectangle()">Reset</button>
+                <button class="button" onclick="lockRectangle()" id="lockButton">Lock Rectangle</button>
+                <button class="button" onclick="generateGrid()" id="gridButton" disabled>Generate Grid</button>
+                <button class="button secondary" onclick="showSettings()">Settings</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <button class="close-button" onclick="hideSettings()">&times;</button>
+            <h2>LevelMap Demo</h2>
+            <p>This is a web demo of the LevelMap AR floor verification app. The actual iOS app includes:</p>
+            <ul style="text-align: left; margin: 20px 0;">
+                <li>Real AR plane detection</li>
+                <li>LiDAR height measurements</li>
+                <li>AI ruler reading</li>
+                <li>Professional PDF reports</li>
+                <li>Project management</li>
+            </ul>
+            <p>To test the full app, you'll need to install it on your iPhone via TestFlight or Xcode.</p>
+            <button class="button" onclick="hideSettings()">Got it!</button>
+        </div>
+    </div>
+    
+    <script>
+        let rectangleLocked = false;
+        let gridGenerated = false;
+        let capturedPoints = 0;
+        let totalPoints = 0;
+        
+        // Generate grid points
+        function generateGrid() {
+            const container = document.getElementById('arContent');
+            container.innerHTML = '';
+            
+            const rows = 4;
+            const cols = 4;
+            totalPoints = rows * cols;
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const point = document.createElement('div');
+                    point.className = 'grid-point';
+                    point.textContent = String.fromCharCode(65 + row) + (col + 1);
+                    point.style.left = (col * 25 + 12.5) + '%';
+                    point.style.top = (row * 25 + 12.5) + '%';
+                    point.onclick = () => capturePoint(point);
+                    container.appendChild(point);
+                }
+            }
+            
+            gridGenerated = true;
+            updateUI();
+        }
+        
+        function capturePoint(point) {
+            if (point.classList.contains('selected')) return;
+            
+            point.classList.add('selected');
+            capturedPoints++;
+            updateUI();
+            
+            // Simulate photo capture
+            setTimeout(() => {
+                alert(`Point ${point.textContent} captured!\nMeasurement: 1.375" (AI detected)\nConfidence: 85%`);
+            }, 500);
+        }
+        
+        function lockRectangle() {
+            rectangleLocked = true;
+            document.getElementById('lockButton').disabled = true;
+            document.getElementById('gridButton').disabled = false;
+            document.getElementById('status').textContent = 'Rectangle locked - ready for grid';
+            updateUI();
+        }
+        
+        function resetRectangle() {
+            rectangleLocked = false;
+            gridGenerated = false;
+            capturedPoints = 0;
+            totalPoints = 0;
+            document.getElementById('arContent').innerHTML = '';
+            document.getElementById('lockButton').disabled = false;
+            document.getElementById('gridButton').disabled = true;
+            document.getElementById('status').textContent = 'Detecting planes...';
+            updateUI();
+        }
+        
+        function updateUI() {
+            document.getElementById('rectSize').textContent = rectangleLocked ? '24" × 36"' : 'Not set';
+            document.getElementById('gridPoints').textContent = totalPoints;
+            document.getElementById('capturedPoints').textContent = capturedPoints;
+        }
+        
+        function showInfo() {
+            const panel = document.getElementById('infoPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function showSettings() {
+            document.getElementById('settingsModal').style.display = 'flex';
+        }
+        
+        function hideSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+        
+        // Initialize
+        updateUI();
+        
+        // Simulate plane detection
+        setTimeout(() => {
+            document.getElementById('status').textContent = 'Plane detected - tap to place rectangle';
+        }, 2000);
+    </script>
+</body>
+</html>

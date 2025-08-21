@@ -1,0 +1,40 @@
+name: iOS Build and TestFlight
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Select Xcode
+      run: sudo xcode-select -switch /Applications/Xcode_15.0.app
+      
+    - name: Build and Archive
+      run: |
+        xcodebuild -project LevelMap.xcodeproj \
+          -scheme LevelMap \
+          -configuration Release \
+          -archivePath ./build/LevelMap.xcarchive \
+          archive
+          
+    - name: Export IPA
+      run: |
+        xcodebuild -exportArchive \
+          -archivePath ./build/LevelMap.xcarchive \
+          -exportPath ./build/ipa \
+          -exportOptionsPlist exportOptions.plist
+          
+    - name: Upload to TestFlight
+      uses: apple-actions/upload-testflight@v1
+      with:
+        app-path: ./build/ipa/LevelMap.ipa
+        api-key: ${{ secrets.APPSTORE_CONNECT_API_KEY }}
+        api-key-id: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+        api-issuer-id: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
