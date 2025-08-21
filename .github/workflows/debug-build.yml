@@ -1,0 +1,74 @@
+name: Debug Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: macos-13
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '15.0'
+    
+    - name: Show Environment
+      run: |
+        echo "=== Environment Info ==="
+        echo "Xcode version:"
+        xcodebuild -version
+        echo ""
+        echo "Available simulators:"
+        xcrun simctl list devices | grep iPhone
+        echo ""
+        echo "Current directory:"
+        pwd
+        ls -la
+    
+    - name: Check Project Files
+      run: |
+        echo "=== Project File Check ==="
+        if [ -f "LevelMap.xcodeproj/project.pbxproj" ]; then
+          echo "✅ Xcode project file exists"
+        else
+          echo "❌ Xcode project file missing"
+          exit 1
+        fi
+        
+        echo ""
+        echo "=== LevelMap Directory Contents ==="
+        if [ -d "LevelMap" ]; then
+          ls -la LevelMap/
+        else
+          echo "❌ LevelMap directory missing"
+          exit 1
+        fi
+    
+    - name: List Schemes
+      run: |
+        echo "=== Available Schemes ==="
+        xcodebuild -list -project LevelMap.xcodeproj || echo "Failed to list schemes"
+    
+    - name: Try Simple Build
+      run: |
+        echo "=== Attempting Simple Build ==="
+        xcodebuild -project LevelMap.xcodeproj \
+          -scheme LevelMap \
+          -configuration Debug \
+          -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+          build || echo "Build failed - check logs above"
+    
+    - name: Show Build Results
+      run: |
+        echo "=== Build Directory Check ==="
+        if [ -d "build" ]; then
+          echo "Build directory exists:"
+          ls -la build/
+        else
+          echo "No build directory found"
+        fi
