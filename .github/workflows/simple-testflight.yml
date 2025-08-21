@@ -1,0 +1,42 @@
+name: Simple TestFlight Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '15.0'
+    
+    - name: Build and Archive
+      run: |
+        xcodebuild -project LevelMap.xcodeproj \
+          -scheme LevelMap \
+          -configuration Release \
+          -archivePath ./build/LevelMap.xcarchive \
+          -destination 'generic/platform=iOS' \
+          -allowProvisioningUpdates \
+          archive
+    
+    - name: Export IPA
+      run: |
+        xcodebuild -exportArchive \
+          -archivePath ./build/LevelMap.xcarchive \
+          -exportPath ./build/ipa \
+          -exportOptionsPlist exportOptions.plist
+    
+    - name: Upload IPA
+      uses: actions/upload-artifact@v3
+      with:
+        name: LevelMap-IPA
+        path: ./build/ipa/LevelMap.ipa
+        retention-days: 30
