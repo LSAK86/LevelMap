@@ -8,25 +8,27 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-13
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
-    - name: Install Dependencies
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '14.3.1'
+    
+    - name: List Available Schemes
       run: |
-        # Install any required dependencies
-        echo "Installing dependencies..."
+        xcodebuild -list -project LevelMap.xcodeproj
     
-    - name: Select Xcode
-      run: sudo xcode-select -switch /Applications/Xcode_14.3.1.app
-      
     - name: Build and Archive
       run: |
         xcodebuild -project LevelMap.xcodeproj \
           -scheme LevelMap \
           -configuration Release \
           -archivePath ./build/LevelMap.xcarchive \
+          -destination 'generic/platform=iOS' \
           archive
           
     - name: Export IPA
