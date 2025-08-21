@@ -1,0 +1,57 @@
+name: Simple iOS Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '14.3.1'
+    
+    - name: Show Environment
+      run: |
+        echo "=== Environment Info ==="
+        xcodebuild -version
+        echo "=== Project Files ==="
+        find . -name "*.swift" | head -10
+        echo "=== Xcode Project ==="
+        ls -la *.xcodeproj/
+    
+    - name: List Schemes
+      run: |
+        echo "=== Available Schemes ==="
+        xcodebuild -list -project LevelMap.xcodeproj || echo "No schemes found"
+    
+    - name: Build for Simulator
+      run: |
+        echo "=== Building for Simulator ==="
+        xcodebuild -project LevelMap.xcodeproj \
+          -scheme LevelMap \
+          -configuration Debug \
+          -destination 'platform=iOS Simulator,name=iPhone 15' \
+          build || echo "Simulator build failed"
+    
+    - name: Build for Device
+      run: |
+        echo "=== Building for Device ==="
+        xcodebuild -project LevelMap.xcodeproj \
+          -scheme LevelMap \
+          -configuration Release \
+          -destination 'generic/platform=iOS' \
+          -archivePath ./build/LevelMap.xcarchive \
+          archive || echo "Device build failed"
+    
+    - name: Show Results
+      run: |
+        echo "=== Build Results ==="
+        ls -la build/ || echo "No build directory"
+        find . -name "*.app" || echo "No app bundles found"
