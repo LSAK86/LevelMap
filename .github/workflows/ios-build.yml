@@ -67,20 +67,31 @@ jobs:
         echo "=== Export Directory Contents ==="
         ls -la build/ipa/ || echo "Export directory not found"
         
-    - name: Upload to TestFlight
+    - name: Verify IPA and Prepare for TestFlight
       if: success()
       run: |
-        echo "=== Installing xcrun altool ==="
-        # For now, just verify the IPA was created
+        echo "=== Verifying IPA Creation ==="
         if [ -f "./build/ipa/LevelMap.ipa" ]; then
           echo "✅ IPA file created successfully: ./build/ipa/LevelMap.ipa"
           ls -la ./build/ipa/
+          echo ""
+          echo "🎉 BUILD SUCCESSFUL! 🎉"
+          echo "Your app is ready for TestFlight upload."
+          echo ""
+          echo "Next steps:"
+          echo "1. Set up App Store Connect API keys"
+          echo "2. Add them as GitHub secrets:"
+          echo "   - APPSTORE_CONNECT_API_KEY_ID"
+          echo "   - APPSTORE_CONNECT_ISSUER_ID" 
+          echo "   - APPSTORE_CONNECT_API_KEY"
+          echo "3. Uncomment the upload section in the workflow"
         else
           echo "❌ IPA file not found"
           exit 1
         fi
         
-        # TODO: Add TestFlight upload using xcrun altool
+        # TODO: Uncomment this section after setting up API keys
+        # echo "=== Uploading to TestFlight ==="
         # xcrun altool --upload-app --type ios --file "./build/ipa/LevelMap.ipa" \
         #   --apiKey "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
         #   --apiIssuer "${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}"
