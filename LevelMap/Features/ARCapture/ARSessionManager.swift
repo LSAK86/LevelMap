@@ -107,109 +107,95 @@ class ARSessionManager: NSObject, ObservableObject {
             center + simd_float3(-halfWidth, 0, halfLength)
         ]
         
-        // Create visual rectangle
         createRectangleVisual()
-        
-        // Generate grid
-        generateGrid()
     }
     
     private func createRectangleVisual() {
         guard let arView = arView else { return }
         
         // Remove existing rectangle
-        rectangleEntity?.removeFromParent()
+        clearRectangle()
         
         // Create rectangle mesh
         let rectangleMesh = MeshResource.generatePlane(width: rectangleWidth, depth: rectangleLength)
-        let rectangleMaterial = SimpleMaterial(color: .blue.withAlphaComponent(0.3), isMetallic: false)
+        let rectangleMaterial = SimpleMaterial(color: .blue, isMetallic: false)
         rectangleEntity = ModelEntity(mesh: rectangleMesh, materials: [rectangleMaterial])
         
         // Position rectangle
-        let center = rectangleCorners.reduce(simd_float3.zero, +) / Float(rectangleCorners.count)
+        let center = (rectangleCorners[0] + rectangleCorners[2]) / 2.0
         rectangleEntity?.position = center
         
         // Add to scene
         arView.scene.addAnchor(AnchorEntity(world: center))
-        arView.scene.anchors.first?.addChild(rectangleEntity!)
+        arView.scene.addAnchor(AnchorEntity(world: center).addChild(rectangleEntity!))
+    }
+    
+    private func clearRectangle() {
+        rectangleEntity = nil
+        rectangleCorners = []
+        gridEntities.forEach { $0.removeFromParent() }
+        gridEntities = []
+        gridPoints = []
     }
     
     // MARK: - Grid Management
     func configureGrid(rows: Int, cols: Int) {
-        gridRows = max(2, min(rows, 26)) // A-Z
-        gridCols = max(2, min(cols, 50))
-        
-        if currentState == .rectanglePlaced {
-            generateGrid()
-        }
+        gridRows = rows
+        gridCols = cols
+        generateGrid()
     }
     
     private func generateGrid() {
-        guard rectangleCorners.count == 4 else { return }
+        guard !rectangleCorners.isEmpty, rectangleCorners.count == 4 else { return }
         
-        // Clear existing grid
         clearGrid()
         
-        // Generate grid points
-        let gridPositions = GeometryUtils.gridWorldPositions(
-            rectTransform: createRectangleTransform(),
-            width: rectangleWidth,
-            length: rectangleLength,
-            rows: gridRows,
-            cols: gridCols
-        )
+        let corner1 = rectangleCorners[0]
+        let corner2 = rectangleCorners[2]
         
-        // Create grid points
-        gridPoints = gridPositions.enumerated().map { index, position in
-            let row = index / gridCols
-            let col = index % gridCols
-            let label = "\(Character(UnicodeScalar(65 + row)!))\(col + 1)"
-            
-            return GridPoint(
-                id: UUID(),
-                sessionId: UUID(), // Will be set by session
-                label: label,
-                worldPosition: position,
-                measuredValue: nil,
-                heightDeviation: nil,
-                isCompleted: false,
-                notes: nil,
-                createdAt: Date(),
-                updatedAt: Date()
-            )
+        for row in 0..<gridRows {
+            for col in 0..<gridCols {
+                let rowRatio = Float(row) / Float(gridRows - 1)
+                let colRatio = Float(col) / Float(gridCols - 1)
+                
+                let position = corner1 + (corner2 - corner1) * simd_float3(colRatio, 0, rowRatio)
+                
+                let gridPoint = GridPoint(
+                    id: "\(Character(UnicodeScalar(65 + row)!))\(col + 1)",
+                    worldPosition: position,
+                    row: row,
+                    col: col,
+                    measurement: nil,
+                    photoAssetId: nil,
+                    heightDeviation: nil
+                )
+                
+                gridPoints.append(gridPoint)
+                createGridVisual(for: gridPoint)
+            }
         }
-        
-        // Create visual grid
-        createGridVisual()
-        
-        currentState = .gridGenerated
     }
     
-    private func createGridVisual() {
+    private func createGridVisual(for gridPoint: GridPoint) {
         guard let arView = arView else { return }
         
-        // Remove existing grid
-        gridEntities.forEach { $0.removeFromParent() }
-        gridEntities.removeAll()
+        let sphereMesh = MeshResource.generateSphere(radius: 0.02)
+        let sphereMaterial = SimpleMaterial(color: .red, isMetallic: false)
+        let sphereEntity = ModelEntity(mesh: sphereMesh, materials: [sphereMaterial])
         
-        // Create grid points
-        for gridPoint in gridPoints {
-            let sphereMesh = MeshResource.generateSphere(radius: 0.02)
-            let sphereMaterial = SimpleMaterial(color: .green, isMetallic: false)
-            let sphereEntity = ModelEntity(mesh: sphereMesh, materials: [sphereMaterial])
-            
-            sphereEntity.position = gridPoint.worldPosition
-            gridEntities.append(sphereEntity)
-            
-            // Add to scene
-            arView.scene.anchors.first?.addChild(sphereEntity)
-        }
+        sphereEntity.position = gridPoint.worldPosition
+        
+        let anchorEntity = AnchorEntity(world: gridPoint.worldPosition)
+        anchorEntity.addChild(sphereEntity)
+        arView.scene.addAnchor(anchorEntity)
+        
+        gridEntities.append(sphereEntity)
     }
     
     private func clearGrid() {
         gridEntities.forEach { $0.removeFromParent() }
-        gridEntities.removeAll()
-        gridPoints.removeAll()
+        gridEntities = []
+        gridPoints = []
     }
     
     // MARK: - Utility Methods
@@ -218,20 +204,19 @@ class ARSessionManager: NSObject, ObservableObject {
         return point - distance * planeNormal
     }
     
-    private func createRectangleTransform() -> simd_float4x4 {
-        let center = rectangleCorners.reduce(simd_float3.zero, +) / Float(rectangleCorners.count)
+    private func createRectangleTransform(from corner1: simd_float3, to corner2: simd_float3) -> simd_float4x4 {
+        let center = (corner1 + corner2) / 2.0
+        let forward = normalize(corner2 - corner1)
+        let up = simd_float3(0, 1, 0)
+        let right = normalize(cross(forward, up))
         
-        var transform = matrix_identity_float4x4
-        transform.columns.3 = simd_float4(center.x, center.y, center.z, 1.0)
+        var transform = simd_float4x4()
+        transform.columns.0 = simd_float4(right, 0)
+        transform.columns.1 = simd_float4(up, 0)
+        transform.columns.2 = simd_float4(forward, 0)
+        transform.columns.3 = simd_float4(center, 1)
         
         return transform
-    }
-    
-    private func clearRectangle() {
-        rectangleEntity?.removeFromParent()
-        rectangleEntity = nil
-        rectangleCorners.removeAll()
-        clearGrid()
     }
     
     // MARK: - Session Control
@@ -241,45 +226,51 @@ class ARSessionManager: NSObject, ObservableObject {
     }
     
     func resumeSession() {
-        guard let arView = arView else { return }
-        configureSession(arView)
+        guard let arSession = arSession else { return }
+        arSession.resume()
+        isSessionActive = true
     }
     
     func resetSession() {
-        guard let arView = arView else { return }
-        
         clearRectangle()
         clearGrid()
-        detectedPlanes.removeAll()
-        selectedPlane = nil
         currentState = .initializing
+        errorMessage = nil
         
-        configureSession(arView)
+        guard let arSession = arSession else { return }
+        let configuration = ARWorldTrackingConfiguration()
+        configuration.planeDetection = [.horizontal]
+        configuration.environmentTexturing = .automatic
+        
+        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+            configuration.sceneReconstruction = .mesh
+        }
+        
+        arSession.run(configuration, options: [.resetTracking, .removeExistingAnchors])
+        isSessionActive = true
+        currentState = .detectingPlanes
     }
     
     // MARK: - Data Export
     func getSessionData() -> ARSessionData {
         return ARSessionData(
+            detectedPlanes: detectedPlanes,
+            selectedPlane: selectedPlane,
             rectangleCorners: rectangleCorners,
             gridPoints: gridPoints,
-            rectangleWidth: rectangleWidth,
-            rectangleLength: rectangleLength,
-            gridRows: gridRows,
-            gridCols: gridCols
+            currentState: currentState,
+            errorMessage: errorMessage
         )
     }
 }
 
-// MARK: - ARSessionDelegate
+// MARK: - ARSessionDelegate Extension
 extension ARSessionManager: ARSessionDelegate {
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
         for anchor in anchors {
             if let planeAnchor = anchor as? ARPlaneAnchor {
                 DispatchQueue.main.async {
                     self.detectedPlanes.append(planeAnchor)
-                    if self.currentState == .detectingPlanes {
-                        self.currentState = .planesDetected
-                    }
                 }
             }
         }
@@ -304,7 +295,6 @@ extension ARSessionManager: ARSessionDelegate {
                     self.detectedPlanes.removeAll { $0.identifier == planeAnchor.identifier }
                     if self.selectedPlane?.identifier == planeAnchor.identifier {
                         self.selectedPlane = nil
-                        self.currentState = .detectingPlanes
                     }
                 }
             }
@@ -335,22 +325,20 @@ extension ARSessionManager: ARSessionDelegate {
 enum ARSessionState {
     case initializing
     case detectingPlanes
-    case planesDetected
     case planeSelected
     case placingRectangle
     case rectanglePlaced
-    case gridGenerated
-    case interrupted
     case error
+    case interrupted
 }
 
 struct ARSessionData {
+    let detectedPlanes: [ARPlaneAnchor]
+    let selectedPlane: ARPlaneAnchor?
     let rectangleCorners: [simd_float3]
     let gridPoints: [GridPoint]
-    let rectangleWidth: Float
-    let rectangleLength: Float
-    let gridRows: Int
-    let gridCols: Int
+    let currentState: ARSessionState
+    let errorMessage: String?
 }
 
 // MARK: - Extensions
