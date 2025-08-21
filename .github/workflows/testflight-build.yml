@@ -1,0 +1,55 @@
+name: TestFlight Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 'latest-stable'
+    
+    - name: Create Build Directory
+      run: mkdir -p build
+    
+    - name: Build Archive
+      run: |
+        xcodebuild \
+          -project LevelMap.xcodeproj \
+          -scheme LevelMap \
+          -configuration Release \
+          -destination 'generic/platform=iOS' \
+          -archivePath build/LevelMap.xcarchive \
+          -allowProvisioningUpdates \
+          archive
+    
+    - name: Export IPA
+      run: |
+        xcodebuild \
+          -exportArchive \
+          -archivePath build/LevelMap.xcarchive \
+          -exportPath build/ipa \
+          -exportOptionsPlist exportOptions.plist \
+          -allowProvisioningUpdates
+    
+    - name: Upload IPA Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: LevelMap-TestFlight-IPA
+        path: build/ipa/LevelMap.ipa
+        retention-days: 30
+    
+    - name: Build Success
+      run: |
+        echo "🎉 TestFlight IPA Ready!"
+        echo "Download from Artifacts section above"
+        echo "Then upload to App Store Connect for TestFlight"
