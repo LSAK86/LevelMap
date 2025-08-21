@@ -1,0 +1,5 @@
+[33me2708c3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Update exportOptions.plist with correct Team ID and prepare for TestFlight
+[33mb87b2ce[m FIX: Add missing LoadingView.swift and rename DesignSystem.swift to ModernDesignSystem.swift
+[33m1950d4a[m FIX: Move ARSessionManager.swift to correct location and remove duplicate
+[33m89ca0cf[m ADD: Debug workflow to identify build issues
+[33m496936a[m ADD: Build IPA workflow for manual TestFlight upload
