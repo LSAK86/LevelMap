@@ -14,10 +14,24 @@
 
 ### Step 2: Get Your Team ID
 1. In App Store Connect, go to "Users and Access"
-2. Note your **Team ID** (10-character code)
+2. Click on your name/account in the top right
+3. Look for **Team ID** - it's a 10-character code (like ABC123DEF4)
+4. **Write it down** - you'll need it for the next step
 
 ### Step 3: Update exportOptions.plist
-Replace `YOUR_TEAM_ID` with your actual Team ID in `exportOptions.plist`
+1. Open the file `exportOptions.plist` in your project
+2. Find this line: `<string>YOUR_TEAM_ID</string>`
+3. Replace `YOUR_TEAM_ID` with your actual Team ID (the 10-character code you found)
+4. Save the file
+
+**Example**: If your Team ID is `ABC123DEF4`, change:
+```xml
+<string>YOUR_TEAM_ID</string>
+```
+to:
+```xml
+<string>ABC123DEF4</string>
+```
 
 ### Step 4: Push to GitHub
 ```bash
