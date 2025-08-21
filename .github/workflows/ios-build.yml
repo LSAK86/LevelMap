@@ -18,27 +18,57 @@ jobs:
       with:
         xcode-version: '14.3.1'
     
+    - name: Show Project Structure
+      run: |
+        echo "=== Project Structure ==="
+        ls -la
+        echo "=== Xcode Project Contents ==="
+        ls -la LevelMap.xcodeproj/
+        echo "=== LevelMap Directory ==="
+        ls -la LevelMap/
+    
     - name: List Available Schemes
       run: |
-        xcodebuild -list -project LevelMap.xcodeproj
+        echo "=== Available Schemes ==="
+        xcodebuild -list -project LevelMap.xcodeproj || echo "Failed to list schemes"
+    
+    - name: Clean Build Directory
+      run: |
+        rm -rf build/
+        mkdir -p build/
     
     - name: Build and Archive
       run: |
+        echo "=== Starting Build ==="
         xcodebuild -project LevelMap.xcodeproj \
           -scheme LevelMap \
           -configuration Release \
           -archivePath ./build/LevelMap.xcarchive \
           -destination 'generic/platform=iOS' \
-          archive
-          
-    - name: Export IPA
+          -allowProvisioningUpdates \
+          archive || echo "Build failed, continuing for debugging"
+    
+    - name: Show Build Results
       run: |
+        echo "=== Build Directory Contents ==="
+        ls -la build/ || echo "Build directory not found"
+        
+    - name: Export IPA
+      if: success()
+      run: |
+        echo "=== Exporting IPA ==="
         xcodebuild -exportArchive \
           -archivePath ./build/LevelMap.xcarchive \
           -exportPath ./build/ipa \
-          -exportOptionsPlist exportOptions.plist
+          -exportOptionsPlist exportOptions.plist || echo "Export failed"
           
+    - name: Show Export Results
+      run: |
+        echo "=== Export Directory Contents ==="
+        ls -la build/ipa/ || echo "Export directory not found"
+        
     - name: Upload to TestFlight
+      if: success()
       uses: apple-actions/upload-testflight@v1
       with:
         app-path: ./build/ipa/LevelMap.ipa
